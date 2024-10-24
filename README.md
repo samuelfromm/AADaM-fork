@@ -1,59 +1,47 @@
-### CITATION ###
+# AADaM - Antibody-Antigen Dataset Maker
 
-To cite AADaM, please cite [link to be added].
+This is a *slightly modified* version of the Antibody-Antigen Dataset Maker (AADaM) [1] (see also https://github.com/kaymccoy/AADaM). It is a **Python** script that takes a larger dataset downloaded from SAbDab [2] and uses it to create benchmark/testing datasets intended for **ML methods**. It may also create complementary training datasets for ML methods that use antibody-antigen structures for training.
 
+Compared to the original Antibody-Antigen Dataset Maker, **this version includes some minor bug fixes and mild refactoring, as well as a change** in how the "number of missing residues" is calculated. For details, see the description below.
 
+### Dataset Creation
 
-### LICENSE ###
+The dataset is created from a SAbDab dataset in two steps:
 
-MIT License
+1. The SAbDab dataset is split into two datasets according to the split date (-d flag). From the "before" split date dataset, only structures for which (one of) the antigen chain(s) is a peptide or protein are kept. From the "after" split date dataset, only structures for which (one of) the antigen chain(s) is a protein are kept. The "after" split date dataset is further filtered by method (-m flag), resolution (-r flag), and non-natural residues (-nx flag).
 
-Copyright (c) 2024 Katherine McCoy
+   If the -cd (--cutoffDate) flag is provided, only structures after the cutoff date are considered (both for the "before" and "after" split date datasets). If the flag --minAtomSeqresFraction is provided, structures with "too many missing residues"<sup>+</sup> **are discarded** from the "after" split date dataset.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+2. Structures in the "after" split date dataset are first filtered by sequence similarity to the "before" split date dataset. Sequence identity is calculated separately for the H, L, and antigen chain(s) using either a local or global alignment (-g, --globalSeqID flag). If the -cs (--cutoffStrict) flag is provided, structures are discarded if any of the sequence identity percentages are above the provided threshold (--abCompSeqCut). Otherwise, structures are discarded if the (maximum of the) sequence identity percentage(s) of the antigen(s) **and** the maximum of the sequence identity percentages of the H and L chains **are** above the provided threshold.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   The resulting dataset is further filtered by sequence similarity within the dataset (using the same procedure as above) with the --withinDatasetCut threshold. When one structure "knocks out" another from consideration due to high sequence similarity, the structure with the "fewest missing residues"<sup>+</sup> within the H, L, and antigen chain(s) is preferred. If both structures share the same number of "missing residues"<sup>+</sup>, the structure with the shorter antigen sequence is selected.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+<sup>+</sup>: We use the minimum fraction of atom sequence length to SEQRES sequence length (as provided by the **PDB** file) as a measure of the number of missing residues. In particular, if this fraction is less than --minAtomSeqresFraction, the structure is discarded.
 
+### Setup
 
+To set up AADaM, please first set up Mosaist, **available on** GitHub at Grigoryanlab/Mosaist. Then, provide the path to Mosaist's `lib` directory in the second line of `src/utils.py`, replacing "/path/to/Mosaist/lib" with your path. The script also uses the `pandas` library.
 
-### INTRODUCTION ###
+If you want to use `conda`, follow these steps:
 
-The Antibody-Antigen Dataset Maker (AADaM) is python script that takes a larger dataset downloaded from SAbDab, and uses it to create benchmark / testing datasets intended for ML-methods. It may also create complementary training datasets for ML methods that use antibody-antigen structures for training!
+1. Download the Mosaist repository: https://github.com/Grigoryanlab/Mosaist
+2. Create a conda environment named `AADaB_env` using `conda create --name AADaB_env`
+3. Activate the conda environment using `conda activate AADaB_env`
+4. Run `conda install conda-forge::boost`
+5. Run `make` in the Mosaist directory
+6. Run `make libs python` in the Mosaist directory
+7. Run `conda install anaconda::pandas`
 
-Structures accepted into the dataset will be required to have below a certain % CDR sequence identity with protein-binding antibody structures released past the training cutoff date (-d flag), to ensure each benchmark is fair with respect to testing ML methods, in that it will contain no close similarities to potential training data. Then within the benchmark, targets are disallowed from sharing a certain % or more sequence identity between heavy chain CDRs, light chain CDRs, and/or any antigen chains to remove redundancy from the benchmark (-cd flag), for the sake of removing representation bias. The and/or is determined by how strict you want to be (-cs flag).
+### Helper Scripts
 
-The dataset produced may also be filtered my method (-m flag), resolution (-r flag), and non-natural residues (-nx flag). A whitelist of structures you want to have preference to be included may also be rpovided (-w flag).
+Also included in the repo are helper scripts to IMGT number and otherwise clean up antibody-antigen structures, search antibody-antigen interfaces for structural motifs, check the Neff of both paired and single-chain MSAs, and calculate interfacial pLDDT. These scripts may be useful for analyzing antibody-antigen models in your future projects. Those scripts relying on Mosaist similarly require updating the Mosaist lib path.
 
-The benchmark was filtered for various indications of quality: resolution, method used to determine the structure, gaps in the CDRs or antigen, length of the antigen, etc. (Fig S1, also see Materials & Methods).
+### License
 
-Finally, there are two different ways to determine sequence ID %; either by using local alignment and requiring it to be 30 residues long or greater, or by using global alignment. 
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more details.
 
-When one structure "knocks out" another from consideration, the one with fewest missing residues within the CDRs and antigen chain(s) is given preference to remain within the dataset, and if both structures share the same number of missing residues (e.g. both have no missing residues), the structure with the shorter antigen sequence is selected. 
+### References
 
+[1] McCoy KM, Ackerman ME, Grigoryan G. A comparison of antibody-antigen complex sequence-to-structure prediction methods and their systematic biases. Protein Sci. 2024 Sep;33(9):e5127. doi: 10.1002/pro.5127. PMID: 39167052; PMCID: PMC11337930.
 
-
-### SET UP ###
-
-To set up AADaM, please first set up Mosaist, located on GitHub at Grigoryanlab/Mosaist.
-
-Then provide your path to Mosaist's lib directory on the 7th line of AntibodyAntigenDatasetMaker.py, replacing "/dartfs/rc/lab/G/Grigoryanlab/home/coy/Mosaist/lib"
-
-
-
-### HELPER SCRIPTS ###
-
-Also included in the repo are helper scripts to IMGT number and otherwise clean up antibody-antigen structures, to search antibody-antigen interfaces for structural motifs, to check the Neff of both paired and single chain MSAs, and to calculate interfacial pLDDT. These scripts may be useful for analyzing antibody-antigen models in your future projects! Those relying on Mosaist similarly require replacing the string for the Mosaist lib to work.
+[2] Constantin Schneider, Matthew I J Raybould, Charlotte M Deane. SAbDab in the age of biotherapeutics: updates including SAbDab-nano, the nanobody structure tracker. Nucleic Acids Research, Volume 50, Issue D1, 7 January 2022, Pages D1368–D1372, https://doi.org/10.1093/nar/gkab1050.
